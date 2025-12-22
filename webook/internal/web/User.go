@@ -75,6 +75,7 @@ func (u *UserHandler) SingUp(ctx *gin.Context) {
 		ctx.String(http.StatusOK, "系统错误")
 		return
 	}
+
 	if !ok {
 		ctx.String(http.StatusOK, "密码格式错误，密码必须包含大写字母、小写字母、数字和特殊字符，长度不能小于8位")
 		return
