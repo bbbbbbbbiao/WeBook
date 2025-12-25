@@ -7,13 +7,33 @@ package main
  */
 
 import (
+	"github.com/bbbbbbbbiao/WeBook/webook/internal/repository"
+	"github.com/bbbbbbbbiao/WeBook/webook/internal/repository/dao"
+	"github.com/bbbbbbbbiao/WeBook/webook/internal/service"
 	"github.com/bbbbbbbbiao/WeBook/webook/internal/web"
+	"github.com/bbbbbbbbiao/WeBook/webook/internal/web/middleware"
 	"github.com/gin-contrib/cors"
+	"github.com/gin-contrib/sessions"
+	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
+	"gorm.io/driver/mysql"
+	"gorm.io/gorm"
 	"strings"
 )
 
 func main() {
+	// 初始化数据库
+	db := initDB()
+
+	server := initWbeServer()
+
+	u := initUser(db)
+	u.RegisterRoutes(server)
+
+	server.Run(":8080")
+}
+
+func initWbeServer() *gin.Engine {
 	server := gin.Default()
 	server.Use(cors.New(cors.Config{
 		//AllowOrigins:     []string{"http://localhost:3000"},
@@ -28,9 +48,41 @@ func main() {
 			return strings.HasPrefix(origin, "youCompany.com")
 		},
 	}))
-	u := web.NewUserHandler()
 
-	u.RegisterRoutes(server)
+	// 中间件-提取session
+	store := cookie.NewStore([]byte("secret"))
+	server.Use(sessions.Sessions("mysession", store))
 
-	server.Run(":8080")
+	// 中间件-校验登录
+	server.Use(middleware.NewLoginMiddlewareBuilder().
+		IgnorePath("/users/login").
+		IgnorePath("/users/signup").
+		Build())
+
+	return server
+}
+
+func initUser(db *gorm.DB) *web.UserHandler {
+	ud := dao.NewUserDao(db)
+	// 初始化用户模块的Repository
+	ur := repository.NewUserRepository(ud)
+	// 初始化用户模块的Service
+	svc := service.NewUserService(ur)
+	// 初始化用户模块的Handler
+	u := web.NewUserHandler(svc)
+	return u
+}
+
+func initDB() *gorm.DB {
+	db, err := gorm.Open(mysql.Open("root:root@tcp(localhost:13316)/webook"))
+	if err != nil {
+		// 表示该goroutine直接退出
+		panic(err)
+	}
+	// 初始化数据库表
+	err = dao.InitTable(db)
+	if err != nil {
+		panic(err)
+	}
+	return db
 }

@@ -1,7 +1,10 @@
 package web
 
 import (
+	"github.com/bbbbbbbbiao/WeBook/webook/internal/domain"
+	"github.com/bbbbbbbbiao/WeBook/webook/internal/service"
 	regexp "github.com/dlclark/regexp2"
+	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"net/http"
 )
@@ -13,11 +16,12 @@ import (
  */
 
 type UserHandler struct {
+	svc          *service.UserService
 	emailExpr    *regexp.Regexp
 	passwordExpr *regexp.Regexp
 }
 
-func NewUserHandler() *UserHandler {
+func NewUserHandler(svc *service.UserService) *UserHandler {
 	const (
 		EmailRegexPattern    = `^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`
 		PasswordRegexPattern = `^(?=.*[A-Z])(?=.*[a-z])(?=.*[0-9])(?=.*[!@#$%^&*()_+\-=\[\]{}|;':",./<>?]).{8,}$`
@@ -26,6 +30,7 @@ func NewUserHandler() *UserHandler {
 	passwordExpr := regexp.MustCompile(PasswordRegexPattern, regexp.None)
 
 	return &UserHandler{
+		svc:          svc,
 		emailExpr:    emailExpr,
 		passwordExpr: passwordExpr,
 	}
@@ -81,11 +86,59 @@ func (u *UserHandler) SingUp(ctx *gin.Context) {
 		return
 	}
 
+	// 调用 SVC 的方法
+	err = u.svc.SignUp(ctx, domain.User{
+		Email:    req.Email,
+		Password: req.Password,
+	})
+
+	if err == service.ErrUserDuplicateEmail {
+		ctx.String(http.StatusOK, "邮箱冲突")
+		return
+	}
+
+	if err != nil {
+		ctx.String(http.StatusOK, "系统错误")
+		return
+	}
 	ctx.JSON(http.StatusOK, "注册成功")
 }
 
 func (u *UserHandler) Login(ctx *gin.Context) {
+	type LoginReq struct {
+		Email    string `json:"email"`
+		Password string `json:"password"`
+	}
+	var req LoginReq
 
+	if err := ctx.Bind(&req); err != nil {
+		ctx.String(http.StatusOK, "系统错误")
+		return
+	}
+
+	user, err := u.svc.Login(ctx, domain.User{
+		Email:    req.Email,
+		Password: req.Password,
+	})
+
+	if err == service.ErrInvalidUserOrPassword {
+		ctx.String(http.StatusOK, "用户名或密码错误")
+		return
+	}
+	if err != nil {
+		ctx.String(http.StatusOK, "系统错误")
+		return
+	}
+
+	session := sessions.Default(ctx)
+	session.Set("userId", user.Id)
+	err = session.Save()
+	if err != nil {
+		ctx.String(http.StatusOK, "系统错误")
+		return
+	}
+
+	ctx.JSON(http.StatusOK, "登录成功")
 }
 
 func (u *UserHandler) Edit(ctx *gin.Context) {
