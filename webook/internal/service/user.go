@@ -5,6 +5,7 @@ import (
 	"errors"
 	"github.com/bbbbbbbbiao/WeBook/webook/internal/domain"
 	"github.com/bbbbbbbbiao/WeBook/webook/internal/repository"
+	"github.com/gin-gonic/gin"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -17,6 +18,7 @@ import (
 var (
 	ErrUserDuplicateEmail    = repository.ErrUserDuplicateEmail
 	ErrInvalidUserOrPassword = errors.New("用户名或密码不正确")
+	ErrUserNotFound          = errors.New("用户不存在")
 )
 
 type UserService struct {
@@ -55,4 +57,32 @@ func (svc *UserService) Login(ctx context.Context, u domain.User) (domain.User, 
 	}
 
 	return user, nil
+}
+
+func (svc *UserService) Edit(ctx *gin.Context, user domain.User) error {
+	_, err := svc.repo.FindUserById(ctx, user.Id)
+
+	if err == repository.ErrUserNotFound {
+		return ErrUserNotFound
+	}
+	if err != nil {
+		return err
+	}
+
+	err = svc.repo.UpdateById(ctx, user)
+	return err
+}
+
+func (svc *UserService) Profile(ctx *gin.Context, id int64) (domain.User, error) {
+	u, err := svc.repo.FindUserById(ctx, id)
+
+	if err == repository.ErrUserNotFound {
+		return domain.User{}, ErrUserNotFound
+	}
+
+	if err != nil {
+		return domain.User{}, err
+	}
+
+	return u, nil
 }

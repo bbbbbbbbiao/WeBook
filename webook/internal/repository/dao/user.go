@@ -21,9 +21,12 @@ var (
 
 // 数据库表的结构体
 type User struct {
-	Id       int64  `gorm:"primaryKey, autoIncrement"`
-	Email    string `gorm:"unique"`
-	Password string
+	Id           int64  `gorm:"primaryKey, autoIncrement"`
+	Email        string `gorm:"unique"`
+	Password     string
+	NickName     string
+	Birthday     string
+	Introduction string
 
 	// 时间，时间戳毫秒数
 	Ctime int64
@@ -59,4 +62,14 @@ func (ud *UserDao) FindByEmail(ctx context.Context, email string) (User, error) 
 	var u User
 	err := ud.db.WithContext(ctx).Where("email = ?", email).First(&u).Error
 	return u, err
+}
+
+func (ud *UserDao) FindUserById(ctx context.Context, id int64) (User, error) {
+	var u User
+	err := ud.db.WithContext(ctx).Where("id = ?", id).First(&u).Error
+	return u, err
+}
+
+func (ud *UserDao) UpdateById(ctx context.Context, u User) error {
+	return ud.db.WithContext(ctx).Where("id = ?", u.Id).Updates(&u).Error
 }

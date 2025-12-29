@@ -2,6 +2,7 @@ package web
 
 import (
 	"github.com/bbbbbbbbiao/WeBook/webook/internal/domain"
+	"github.com/bbbbbbbbiao/WeBook/webook/internal/repository"
 	"github.com/bbbbbbbbiao/WeBook/webook/internal/service"
 	regexp "github.com/dlclark/regexp2"
 	"github.com/gin-contrib/sessions"
@@ -16,23 +17,35 @@ import (
  */
 
 type UserHandler struct {
-	svc          *service.UserService
-	emailExpr    *regexp.Regexp
-	passwordExpr *regexp.Regexp
+	svc              *service.UserService
+	emailExpr        *regexp.Regexp
+	passwordExpr     *regexp.Regexp
+	nikeNameExpr     *regexp.Regexp
+	birthdayExpr     *regexp.Regexp
+	introductionExpr *regexp.Regexp
 }
 
 func NewUserHandler(svc *service.UserService) *UserHandler {
 	const (
 		EmailRegexPattern    = `^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`
 		PasswordRegexPattern = `^(?=.*[A-Z])(?=.*[a-z])(?=.*[0-9])(?=.*[!@#$%^&*()_+\-=\[\]{}|;':",./<>?]).{8,}$`
+		NikeNamePattern      = `^[\u4e00-\u9fa5a-zA-Z0-9_]{1,20}$`
+		BirthdayPattern      = `^(19|20)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$`
+		IntroductionPattern  = `^.{0,200}$`
 	)
 	emailExpr := regexp.MustCompile(EmailRegexPattern, regexp.None)
 	passwordExpr := regexp.MustCompile(PasswordRegexPattern, regexp.None)
+	nikeNameExpr := regexp.MustCompile(NikeNamePattern, regexp.None)
+	birthdayExpr := regexp.MustCompile(BirthdayPattern, regexp.None)
+	introductionExpr := regexp.MustCompile(IntroductionPattern, regexp.None)
 
 	return &UserHandler{
-		svc:          svc,
-		emailExpr:    emailExpr,
-		passwordExpr: passwordExpr,
+		svc:              svc,
+		emailExpr:        emailExpr,
+		passwordExpr:     passwordExpr,
+		nikeNameExpr:     nikeNameExpr,
+		birthdayExpr:     birthdayExpr,
+		introductionExpr: introductionExpr,
 	}
 }
 
@@ -80,7 +93,6 @@ func (u *UserHandler) SingUp(ctx *gin.Context) {
 		ctx.String(http.StatusOK, "系统错误")
 		return
 	}
-
 	if !ok {
 		ctx.String(http.StatusOK, "密码格式错误，密码必须包含大写字母、小写字母、数字和特殊字符，长度不能小于8位")
 		return
@@ -142,9 +154,76 @@ func (u *UserHandler) Login(ctx *gin.Context) {
 }
 
 func (u *UserHandler) Edit(ctx *gin.Context) {
+	type EditReq struct {
+		NickName     string `json:"nikeName"`
+		Birthday     string `json:"birthday"`
+		Introduction string `json:"introduction"`
+	}
 
+	var req EditReq
+	if err := ctx.Bind(&req); err != nil {
+		ctx.String(http.StatusOK, "系统错误")
+		return
+	}
+
+	ok, err := u.nikeNameExpr.MatchString(req.NickName)
+	if err != nil {
+		ctx.String(http.StatusOK, "系统错误")
+		return
+	}
+	if !ok {
+		ctx.String(http.StatusOK, "昵称格式错误，昵称只能包含中文、字母、数字和下划线，长度不能超过20个字符")
+	}
+
+	ok, err = u.birthdayExpr.MatchString(req.Birthday)
+	if err != nil {
+		ctx.String(http.StatusOK, "系统错误")
+		return
+	}
+	if !ok {
+		ctx.String(http.StatusOK, "生日格式错误，生日必须符合yyyy-MM-dd格式")
+		return
+	}
+
+	ok, err = u.introductionExpr.MatchString(req.Introduction)
+	if err != nil {
+		ctx.String(http.StatusOK, "系统错误")
+		return
+	}
+	if !ok {
+		ctx.String(http.StatusOK, "简介格式错误，简介长度不能超过200个字符")
+		return
+	}
+	err = u.svc.Edit(ctx, domain.User{
+		Id:           ctx.GetInt64("userId"),
+		NickName:     req.NickName,
+		Birthday:     req.Birthday,
+		Introduction: req.Introduction,
+	})
+
+	if err == repository.ErrUserNotFound {
+		ctx.String(http.StatusOK, "用户不存在")
+	}
+	if err != nil {
+		ctx.String(http.StatusOK, "系统错误")
+		return
+	}
+	ctx.JSON(http.StatusOK, "编辑成功")
 }
 
 func (u *UserHandler) Profile(ctx *gin.Context) {
+	userId := ctx.GetInt64("userId")
+	user, err := u.svc.Profile(ctx, userId)
 
+	if err == service.ErrUserNotFound {
+		ctx.String(http.StatusOK, "用户不存在")
+		return
+	}
+
+	if err != nil {
+		ctx.String(http.StatusOK, "系统错误")
+		return
+	}
+
+	ctx.JSON(http.StatusOK, user)
 }
