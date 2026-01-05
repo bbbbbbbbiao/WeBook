@@ -14,7 +14,7 @@ import (
 	"github.com/bbbbbbbbiao/WeBook/webook/internal/web/middleware"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-contrib/sessions"
-	"github.com/gin-contrib/sessions/cookie"
+	"github.com/gin-contrib/sessions/redis"
 	"github.com/gin-gonic/gin"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
@@ -50,8 +50,14 @@ func initWbeServer() *gin.Engine {
 	}))
 
 	// 中间件-提取session
-	store := cookie.NewStore([]byte("secret"))
-	server.Use(sessions.Sessions("mysession", store))
+	//store := cookie.NewStore([]byte("secret"))
+	// 第一个key 身份认证，第二个key 密码加密 (不适应于多实例部署)
+	//store := memstore.NewStore([]byte("3E7QYaUxM5tMhDWwd5HphdYWND7WR2Vx"), []byte("Aj6R5sfYMCsxMwsb5TSUjP3228PBdXCE"))
+	store, err := redis.NewStore(16, "tcp", "localhost:6379", "", "", []byte("3E7QYaUxM5tMhDWwd5HphdYWND7WR2Vx"), []byte("Aj6R5sfYMCsxMwsb5TSUjP3228PBdXCE"))
+	if err != nil {
+		panic(err)
+	}
+	server.Use(sessions.Sessions("my_session", store))
 
 	// 中间件-校验登录
 	server.Use(middleware.NewLoginMiddlewareBuilder().

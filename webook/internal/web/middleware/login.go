@@ -4,6 +4,7 @@ import (
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"net/http"
+	"time"
 )
 
 /**
@@ -37,7 +38,19 @@ func (lmb *LoginMiddlewareBuilder) Build() gin.HandlerFunc {
 			ctx.AbortWithStatus(http.StatusUnauthorized)
 			return
 		}
+		session.Options(sessions.Options{
+			MaxAge: 60,
+		})
+		updateTime := session.Get("updateTime")
+		if updateTime == nil {
+			session.Set("updateTime", time.Now().UnixMilli())
+			session.Save()
+		}
 
+		if time.Now().UnixMilli()-updateTime.(int64) > 10*1000 {
+			session.Set("updateTime", time.Now().UnixMilli())
+			session.Save()
+		}
 		ctx.Set("userId", session.Get("userId"))
 	}
 }

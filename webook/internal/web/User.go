@@ -144,6 +144,10 @@ func (u *UserHandler) Login(ctx *gin.Context) {
 
 	session := sessions.Default(ctx)
 	session.Set("userId", user.Id)
+	// sessions 中设置参数
+	session.Options(sessions.Options{
+		MaxAge: 60,
+	})
 	err = session.Save()
 	if err != nil {
 		ctx.String(http.StatusOK, "系统错误")
