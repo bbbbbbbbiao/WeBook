@@ -7,7 +7,9 @@ import (
 	regexp "github.com/dlclark/regexp2"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt/v5"
 	"net/http"
+	"time"
 )
 
 /**
@@ -53,6 +55,7 @@ func (u *UserHandler) RegisterRoutes(server *gin.Engine) {
 	ug := server.Group("/users")
 	ug.POST("/signup", u.SingUp)
 	ug.POST("/login", u.Login)
+	ug.POST("/JWTLogin", u.JWTLogin)
 	ug.POST("/edit", u.Edit)
 	ug.GET("/profile", u.Profile)
 }
@@ -114,6 +117,51 @@ func (u *UserHandler) SingUp(ctx *gin.Context) {
 		return
 	}
 	ctx.JSON(http.StatusOK, "注册成功")
+}
+
+func (u *UserHandler) JWTLogin(ctx *gin.Context) {
+	type LoginReq struct {
+		Email    string `json:"email"`
+		Password string `json:"password"`
+	}
+	var req LoginReq
+
+	if err := ctx.Bind(&req); err != nil {
+		ctx.String(http.StatusOK, "系统错误")
+		return
+	}
+
+	user, err := u.svc.Login(ctx, domain.User{
+		Email:    req.Email,
+		Password: req.Password,
+	})
+
+	if err == service.ErrInvalidUserOrPassword {
+		ctx.String(http.StatusOK, "用户名或密码错误")
+		return
+	}
+	if err != nil {
+		ctx.String(http.StatusOK, "系统错误")
+		return
+	}
+
+	// 生成jwt结构体
+	token := jwt.NewWithClaims(jwt.SigningMethodHS512, UserClaims{
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Minute)),
+		},
+		UserId: user.Id,
+	})
+
+	tokenStr, err := token.SignedString([]byte("3E7QYaUxM5tMhDWwd5HphdYWND7WR2Vx"))
+
+	if err != nil {
+		ctx.String(http.StatusOK, "系统错误")
+		return
+	}
+
+	ctx.Header("x-jwt-token", tokenStr)
+	ctx.JSON(http.StatusOK, "登录成功")
 }
 
 func (u *UserHandler) Login(ctx *gin.Context) {
@@ -216,9 +264,14 @@ func (u *UserHandler) Edit(ctx *gin.Context) {
 }
 
 func (u *UserHandler) Profile(ctx *gin.Context) {
-	userId := ctx.GetInt64("userId")
-	user, err := u.svc.Profile(ctx, userId)
+	userClaims, _ := ctx.Get("userClaims")
+	claims, ok := userClaims.(*UserClaims)
+	if !ok || claims.UserId == 0 {
+		ctx.String(http.StatusOK, "系统错误")
+		return
+	}
 
+	user, err := u.svc.Profile(ctx, claims.UserId)
 	if err == service.ErrUserNotFound {
 		ctx.String(http.StatusOK, "用户不存在")
 		return
@@ -228,6 +281,11 @@ func (u *UserHandler) Profile(ctx *gin.Context) {
 		ctx.String(http.StatusOK, "系统错误")
 		return
 	}
-
 	ctx.JSON(http.StatusOK, user)
+}
+
+// 声明一个我自己的放到token中数据
+type UserClaims struct {
+	jwt.RegisteredClaims
+	UserId int64
 }

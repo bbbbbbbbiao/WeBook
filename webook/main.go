@@ -25,12 +25,50 @@ func main() {
 	// 初始化数据库
 	db := initDB()
 
-	server := initWbeServer()
+	//server := initWbeServer()
 
+	server := initJWTWebServer()
 	u := initUser(db)
 	u.RegisterRoutes(server)
 
 	server.Run(":8080")
+}
+
+func initJWTWebServer() *gin.Engine {
+	server := gin.Default()
+
+	server.Use(cors.New(cors.Config{
+		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization"},
+		ExposeHeaders:    []string{"x-jwt-token", "Content-Length"},
+		AllowCredentials: true,
+		AllowOriginFunc: func(origin string) bool {
+			if strings.HasPrefix(origin, "http://localhost") {
+				return true
+			}
+			return strings.HasPrefix(origin, "youCompany.com")
+		},
+	}))
+
+	// sessions 和 JWT 共存
+	store, err := redis.NewStore(
+		16,
+		"tcp",
+		"localhost:6379",
+		"",
+		"",
+		[]byte("3E7QYaUxM5tMhDWwd5HphdYWND7WR2Vx"),
+		[]byte("Aj6R5sfYMCsxMwsb5TSUjP3228PBdXCE"))
+	if err != nil {
+		panic(err)
+	}
+	server.Use(sessions.Sessions("mysession", store))
+
+	server.Use(middleware.NewJWTLoginMiddlewareBuilder().
+		IgnorePath("/users/signup").
+		IgnorePath("/users/JwtLogin").
+		Build())
+
+	return server
 }
 
 func initWbeServer() *gin.Engine {
@@ -39,7 +77,7 @@ func initWbeServer() *gin.Engine {
 		//AllowOrigins:     []string{"http://localhost:3000"},
 		//AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"}, // 不填则是全部方法
 		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization"},
-		ExposeHeaders:    []string{"Content-Length"},
+		ExposeHeaders:    []string{"Content-Length", "x-jwt-token"},
 		AllowCredentials: true,
 		AllowOriginFunc: func(origin string) bool {
 			if strings.HasPrefix(origin, "http://localhost") {
@@ -53,7 +91,14 @@ func initWbeServer() *gin.Engine {
 	//store := cookie.NewStore([]byte("secret"))
 	// 第一个key 身份认证，第二个key 密码加密 (不适应于多实例部署)
 	//store := memstore.NewStore([]byte("3E7QYaUxM5tMhDWwd5HphdYWND7WR2Vx"), []byte("Aj6R5sfYMCsxMwsb5TSUjP3228PBdXCE"))
-	store, err := redis.NewStore(16, "tcp", "localhost:6379", "", "", []byte("3E7QYaUxM5tMhDWwd5HphdYWND7WR2Vx"), []byte("Aj6R5sfYMCsxMwsb5TSUjP3228PBdXCE"))
+	store, err := redis.NewStore(
+		16,
+		"tcp",
+		"localhost:6379",
+		"",
+		"",
+		[]byte("3E7QYaUxM5tMhDWwd5HphdYWND7WR2Vx"),
+		[]byte("Aj6R5sfYMCsxMwsb5TSUjP3228PBdXCE"))
 	if err != nil {
 		panic(err)
 	}
