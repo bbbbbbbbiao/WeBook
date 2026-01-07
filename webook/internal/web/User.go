@@ -150,7 +150,8 @@ func (u *UserHandler) JWTLogin(ctx *gin.Context) {
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Minute)),
 		},
-		UserId: user.Id,
+		UserId:    user.Id,
+		UserAgent: ctx.Request.UserAgent(),
 	})
 
 	tokenStr, err := token.SignedString([]byte("3E7QYaUxM5tMhDWwd5HphdYWND7WR2Vx"))
@@ -287,5 +288,6 @@ func (u *UserHandler) Profile(ctx *gin.Context) {
 // 声明一个我自己的放到token中数据
 type UserClaims struct {
 	jwt.RegisteredClaims
-	UserId int64
+	UserId    int64
+	UserAgent string
 }

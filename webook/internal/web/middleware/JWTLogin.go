@@ -60,6 +60,11 @@ func (jl *JWTLoginMiddlewareBuilder) Build() gin.HandlerFunc {
 			ctx.AbortWithStatus(http.StatusUnauthorized)
 			return
 		}
+
+		if ctx.Request.UserAgent() != userClaims.UserAgent {
+			ctx.AbortWithStatus(http.StatusUnauthorized)
+			return
+		}
 		ctx.Set("userClaims", userClaims)
 	}
 }
