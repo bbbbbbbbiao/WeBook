@@ -7,6 +7,7 @@ package main
  */
 
 import (
+	"github.com/bbbbbbbbiao/WeBook/webook/config"
 	"github.com/bbbbbbbbiao/WeBook/webook/internal/repository"
 	"github.com/bbbbbbbbiao/WeBook/webook/internal/repository/dao"
 	"github.com/bbbbbbbbiao/WeBook/webook/internal/service"
@@ -18,18 +19,24 @@ import (
 	"github.com/gin-gonic/gin"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
+	"net/http"
 	"strings"
 )
 
 func main() {
 	// 初始化数据库
-	db := initDB()
+	//db := initDB()
 
 	//server := initWbeServer()
 
-	server := initJWTWebServer()
-	u := initUser(db)
-	u.RegisterRoutes(server)
+	//server := initJWTWebServer()
+	//u := initUser(db)
+	//u.RegisterRoutes(server)
+
+	server := gin.Default()
+	server.GET("/hello", func(ctx *gin.Context) {
+		ctx.String(http.StatusOK, "hello, I am k8s!!!")
+	})
 
 	server.Run(":8080")
 }
@@ -125,7 +132,7 @@ func initUser(db *gorm.DB) *web.UserHandler {
 }
 
 func initDB() *gorm.DB {
-	db, err := gorm.Open(mysql.Open("root:root@tcp(localhost:13316)/webook"))
+	db, err := gorm.Open(mysql.Open(config.Config.DB.DSN))
 	if err != nil {
 		// 表示该goroutine直接退出
 		panic(err)

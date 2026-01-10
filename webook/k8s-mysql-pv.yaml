@@ -1,0 +1,13 @@
+apiVersion: v1
+# 指的是我k8s有哪些卷（我可以提供什么样的卷）
+kind: PersistentVolume
+metadata:
+  name: my-local-pv
+spec:
+  storageClassName: manual
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: "/mnt/data"

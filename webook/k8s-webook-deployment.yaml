@@ -1,0 +1,23 @@
+apiVersion: apps/v1
+kind: Deployment
+# 描述 deployment 是什么样
+metadata:
+  name: webook
+spec: #delpoyment的规格说明
+  replicas: 3 #管理pod的个数
+  selector:
+    matchLabels:
+      app: webook
+# template：pod模板，描述pod是什么样的
+  template:
+    metadata:
+      labels:
+        app: webook
+    spec: #pod的规格说明
+      containers:
+        - name: webook
+          image: dabiao22/webook:v0.0.1
+          ports:
+            - containerPort: 8080
+
+

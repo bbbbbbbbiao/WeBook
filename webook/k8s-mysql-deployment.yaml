@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: webook-mysql
+  labels:
+    app: webook-mysql
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: webook-mysql
+  template:
+    metadata:
+      name: webook-mysql
+      labels:
+        app: webook-mysql
+    spec:
+      containers:
+        - name: webook-mysql
+          image: mysql:8.0.29
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              value: root
+          imagePullPolicy: IfNotPresent
+          # 这个卷表示的是，该pod中的该容器，使用的哪个外部（POD）卷
+          volumeMounts:
+            # 这边需要对应到mysql数据存储的位置
+            - mountPath: /var/lib/mysql
+              name: mysql-store
+          ports:
+            - containerPort: 3306
+              protocol: TCP
+      restartPolicy: Always
+      # 这个表示我整个POD的卷
+      volumes:
+        - name: mysql-store
+          persistentVolumeClaim:
+            claimName: webook-mysql-claim #我持久化卷是什么样子的，就用这个来声明（pvc）

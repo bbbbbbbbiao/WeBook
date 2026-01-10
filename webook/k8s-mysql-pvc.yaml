@@ -1,0 +1,16 @@
+apiVersion: v1
+# 指的是我mysql有哪些卷（我需要什么样的卷）
+kind: PersistentVolumeClaim
+metadata:
+  name: webook-mysql-claim
+spec:
+  # 随便取，要和pv配对
+  storageClassName: manual
+  accessModes:
+#    一个读写
+    - ReadWriteOnce
+#    - ReadOnlyMany
+#    - ReadWriteMany
+  resources:
+    requests:
+      storage: 1Gi #1GB
