@@ -22,8 +22,8 @@ func NewJWTLoginMiddlewareBuilder() *JWTLoginMiddlewareBuilder {
 	return &JWTLoginMiddlewareBuilder{}
 }
 
-func (jl *JWTLoginMiddlewareBuilder) IgnorePath(path ...string) *JWTLoginMiddlewareBuilder {
-	jl.IgnorePaths = append(jl.IgnorePaths, path...)
+func (jl *JWTLoginMiddlewareBuilder) IgnorePath(path string) *JWTLoginMiddlewareBuilder {
+	jl.IgnorePaths = append(jl.IgnorePaths, path)
 	return jl
 }
 

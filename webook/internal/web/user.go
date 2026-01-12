@@ -148,7 +148,7 @@ func (u *UserHandler) JWTLogin(ctx *gin.Context) {
 	// 生成jwt结构体
 	token := jwt.NewWithClaims(jwt.SigningMethodHS512, UserClaims{
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Minute)),
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Minute * 30)),
 		},
 		UserId:    user.Id,
 		UserAgent: ctx.Request.UserAgent(),
