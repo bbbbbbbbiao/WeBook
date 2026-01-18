@@ -2,7 +2,6 @@ package web
 
 import (
 	"github.com/bbbbbbbbiao/WeBook/webook/internal/domain"
-	"github.com/bbbbbbbbiao/WeBook/webook/internal/repository"
 	"github.com/bbbbbbbbiao/WeBook/webook/internal/service"
 	regexp "github.com/dlclark/regexp2"
 	"github.com/gin-contrib/sessions"
@@ -254,7 +253,7 @@ func (u *UserHandler) Edit(ctx *gin.Context) {
 		Introduction: req.Introduction,
 	})
 
-	if err == repository.ErrUserNotFound {
+	if err == service.ErrUserNotFound {
 		ctx.String(http.StatusOK, "用户不存在")
 	}
 	if err != nil {
