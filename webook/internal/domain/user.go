@@ -10,7 +10,11 @@ type User struct {
 	Id           int64
 	Email        string
 	Password     string
+	Phone        string
 	NickName     string
 	Birthday     string
 	Introduction string
+
+	Ctime int64
+	Utime int64
 }

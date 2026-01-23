@@ -12,6 +12,7 @@ import (
 	"github.com/bbbbbbbbiao/WeBook/webook/internal/repository/cache"
 	"github.com/bbbbbbbbiao/WeBook/webook/internal/repository/dao"
 	"github.com/bbbbbbbbiao/WeBook/webook/internal/service"
+	"github.com/bbbbbbbbiao/WeBook/webook/internal/service/sms/memory"
 	"github.com/bbbbbbbbiao/WeBook/webook/internal/web"
 	"github.com/bbbbbbbbiao/WeBook/webook/internal/web/middleware"
 	"github.com/gin-contrib/cors"
@@ -27,12 +28,12 @@ import (
 func main() {
 	// 初始化数据库
 	db := initDB()
-	redis := initRedis()
+	re := initRedis()
 
 	//server := initWbeServer()
 
 	server := initJWTWebServer()
-	u := initUser(db, redis)
+	u := initUser(db, re)
 	u.RegisterRoutes(server)
 
 	server.GET("/hello", func(ctx *gin.Context) {
@@ -116,6 +117,7 @@ func initWbeServer() *gin.Engine {
 	server.Use(middleware.NewLoginMiddlewareBuilder().
 		IgnorePath("/users/login").
 		IgnorePath("/users/signup").
+		IgnorePath("/users/login_sms/code/send").
 		Build())
 
 	return server
@@ -124,12 +126,16 @@ func initWbeServer() *gin.Engine {
 func initUser(db *gorm.DB, redis *redis.Client) *web.UserHandler {
 	ud := dao.NewUserDao(db)
 	uc := cache.NewUserCache(redis, time.Minute*30)
+	codeCache := cache.NewCodeCache(redis)
 	// 初始化用户模块的Repository
 	ur := repository.NewUserRepository(ud, uc)
+	codeRepo := repository.NewCodeRepository(codeCache)
 	// 初始化用户模块的Service
 	svc := service.NewUserService(ur)
+	smsSvc := memory.NewService()
+	codeSvc := service.NewCodeService(codeRepo, smsSvc)
 	// 初始化用户模块的Handler
-	u := web.NewUserHandler(svc)
+	u := web.NewUserHandler(svc, codeSvc)
 	return u
 }
 

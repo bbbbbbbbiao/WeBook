@@ -2,6 +2,7 @@ package dao
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"github.com/go-sql-driver/mysql"
 	"gorm.io/gorm"
@@ -15,15 +16,20 @@ import (
  */
 
 var (
-	ErrUserDuplicateEmail = errors.New("邮箱冲突")
-	ErrUserNotFound       = gorm.ErrRecordNotFound
+	ErrUserDuplicate = errors.New("邮箱或手机号冲突")
+	ErrUserNotFound  = gorm.ErrRecordNotFound
 )
 
 // 数据库表的结构体
 type User struct {
-	Id           int64  `gorm:"primaryKey, autoIncrement"`
-	Email        string `gorm:"unique"`
-	Password     string
+	Id       int64          `gorm:"primaryKey, autoIncrement"`
+	Email    sql.NullString `gorm:"unique"`
+	Password string
+
+	// 唯一索引，可以允许有多个空值
+	// 不允许有多个空字符串
+	Phone sql.NullString `gorm:"unique"`
+
 	NickName     string
 	Birthday     string
 	Introduction string
@@ -52,7 +58,8 @@ func (ud *UserDao) Insert(ctx context.Context, u User) error {
 	if mysqlError, ok := err.(*mysql.MySQLError); ok {
 		const uniqueIndexErrNo = 1062
 		if mysqlError.Number == uniqueIndexErrNo {
-			return ErrUserDuplicateEmail
+			// 邮箱或手机号冲突
+			return ErrUserDuplicate
 		}
 	}
 	return err
@@ -61,6 +68,12 @@ func (ud *UserDao) Insert(ctx context.Context, u User) error {
 func (ud *UserDao) FindByEmail(ctx context.Context, email string) (User, error) {
 	var u User
 	err := ud.db.WithContext(ctx).Where("email = ?", email).First(&u).Error
+	return u, err
+}
+
+func (ud *UserDao) FindByPhone(ctx context.Context, phone string) (User, error) {
+	var u User
+	err := ud.db.WithContext(ctx).Where("phone = ?", phone).First(&u).Error
 	return u, err
 }
 

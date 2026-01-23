@@ -17,8 +17,11 @@ import (
  * @description: 用户模块的web层
  */
 
+const biz = "login"
+
 type UserHandler struct {
 	svc              *service.UserService
+	codeSvc          *service.CodeService
 	emailExpr        *regexp.Regexp
 	passwordExpr     *regexp.Regexp
 	nikeNameExpr     *regexp.Regexp
@@ -26,7 +29,7 @@ type UserHandler struct {
 	introductionExpr *regexp.Regexp
 }
 
-func NewUserHandler(svc *service.UserService) *UserHandler {
+func NewUserHandler(svc *service.UserService, codeSvc *service.CodeService) *UserHandler {
 	const (
 		EmailRegexPattern    = `^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`
 		PasswordRegexPattern = `^(?=.*[A-Z])(?=.*[a-z])(?=.*[0-9])(?=.*[!@#$%^&*()_+\-=\[\]{}|;':",./<>?]).{8,}$`
@@ -42,6 +45,7 @@ func NewUserHandler(svc *service.UserService) *UserHandler {
 
 	return &UserHandler{
 		svc:              svc,
+		codeSvc:          codeSvc,
 		emailExpr:        emailExpr,
 		passwordExpr:     passwordExpr,
 		nikeNameExpr:     nikeNameExpr,
@@ -57,6 +61,8 @@ func (u *UserHandler) RegisterRoutes(server *gin.Engine) {
 	ug.POST("/JWTLogin", u.JWTLogin)
 	ug.POST("/edit", u.Edit)
 	ug.GET("/profile", u.Profile)
+	ug.POST("/login_sms/code/send", u.SendLoginSMSCode)
+	ug.POST("/login_sms", u.LoginSms)
 }
 
 func (u *UserHandler) SingUp(ctx *gin.Context) {
@@ -106,7 +112,7 @@ func (u *UserHandler) SingUp(ctx *gin.Context) {
 		Password: req.Password,
 	})
 
-	if err == service.ErrUserDuplicateEmail {
+	if err == service.ErrUserDuplicate {
 		ctx.String(http.StatusOK, "邮箱冲突")
 		return
 	}
@@ -116,6 +122,118 @@ func (u *UserHandler) SingUp(ctx *gin.Context) {
 		return
 	}
 	ctx.JSON(http.StatusOK, "注册成功")
+}
+
+// 发送验证码
+func (u *UserHandler) SendLoginSMSCode(ctx *gin.Context) {
+	type Req struct {
+		Phone string `json:"phone"`
+	}
+	var req Req
+	if err := ctx.Bind(&req); err != nil {
+		return
+	}
+	err := u.codeSvc.Send(ctx, biz, req.Phone)
+	//if err == service.ErrCodeSendTooMany {
+	//	ctx.JSON(http.StatusOK, Result{
+	//		Code: 5,
+	//		Msg:  "验证码发送太频繁",
+	//	})
+	//	return
+	//}
+	//if err != nil {
+	//	ctx.JSON(http.StatusOK, Result{
+	//		Code: 5,
+	//		Msg:  "系统错误",
+	//	})
+	//	return
+	//}
+	//ctx.JSON(http.StatusOK, Result{
+	//	Msg: "发送成功",
+	//})
+	switch err {
+	case nil:
+		ctx.JSON(http.StatusOK, Result{
+			Msg: "发送成功",
+		})
+	case service.ErrCodeSendTooMany:
+		ctx.JSON(http.StatusOK, Result{
+			Code: 4,
+			Msg:  "发送太频繁，请稍后再试",
+		})
+	default:
+		ctx.JSON(http.StatusOK, Result{
+			Code: 5,
+			Msg:  "系统错误",
+		})
+	}
+
+}
+
+// 验证验证码
+func (u *UserHandler) LoginSms(ctx *gin.Context) {
+	type VerifyReq struct {
+		Phone string `json:"phone"`
+		Code  string `json:"code"`
+	}
+	var req VerifyReq
+	if err := ctx.Bind(&req); err != nil {
+		ctx.JSON(http.StatusOK, Result{
+			Code: 5,
+			Msg:  "系统错误",
+		})
+		return
+	}
+
+	ok, err := u.codeSvc.Verify(ctx, biz, req.Phone, req.Code)
+
+	if err == service.ErrCodeVerifyTooMay {
+		ctx.JSON(http.StatusOK, Result{
+			Code: 5,
+			Msg:  "验证次数已用完，请重新获取验证码",
+		})
+		return
+	}
+
+	if err != nil {
+		ctx.JSON(http.StatusOK, Result{
+			Code: 5,
+			Msg:  "系统错误",
+		})
+		return
+	}
+
+	if !ok {
+		ctx.JSON(http.StatusOK, Result{
+			Code: 4,
+			Msg:  "验证码错误，请重试",
+		})
+		return
+	}
+
+	// 验证通过后，该如何操作呢？
+	// 进行注册或登录
+	user, err := u.svc.FindOrCreate(ctx, req.Phone)
+	if err != nil {
+		ctx.JSON(http.StatusOK, Result{
+			Code: 5,
+			Msg:  "系统错误",
+		})
+		return
+	}
+
+	// 生成Token
+	if err = u.SetJWTToken(ctx, user.Id); err != nil {
+		ctx.JSON(http.StatusOK, Result{
+			Code: 5,
+			Msg:  "系统错误",
+		})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, Result{
+		Msg: "验证码校验通过",
+	})
 }
 
 func (u *UserHandler) JWTLogin(ctx *gin.Context) {
@@ -144,24 +262,31 @@ func (u *UserHandler) JWTLogin(ctx *gin.Context) {
 		return
 	}
 
+	if err = u.SetJWTToken(ctx, user.Id); err != nil {
+		ctx.String(http.StatusOK, "系统错误")
+		return
+	}
+	ctx.JSON(http.StatusOK, "登录成功")
+}
+
+func (u *UserHandler) SetJWTToken(ctx *gin.Context, uid int64) error {
 	// 生成jwt结构体
 	token := jwt.NewWithClaims(jwt.SigningMethodHS512, UserClaims{
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Minute * 30)),
 		},
-		UserId:    user.Id,
+		UserId:    uid,
 		UserAgent: ctx.Request.UserAgent(),
 	})
 
 	tokenStr, err := token.SignedString([]byte("3E7QYaUxM5tMhDWwd5HphdYWND7WR2Vx"))
 
 	if err != nil {
-		ctx.String(http.StatusOK, "系统错误")
-		return
+		return err
 	}
 
 	ctx.Header("x-jwt-token", tokenStr)
-	ctx.JSON(http.StatusOK, "登录成功")
+	return nil
 }
 
 func (u *UserHandler) Login(ctx *gin.Context) {
