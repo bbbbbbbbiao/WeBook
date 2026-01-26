@@ -7,35 +7,25 @@ package main
  */
 
 import (
-	"github.com/bbbbbbbbiao/WeBook/webook/config"
-	"github.com/bbbbbbbbiao/WeBook/webook/internal/repository"
-	"github.com/bbbbbbbbiao/WeBook/webook/internal/repository/cache"
-	"github.com/bbbbbbbbiao/WeBook/webook/internal/repository/dao"
-	"github.com/bbbbbbbbiao/WeBook/webook/internal/service"
-	"github.com/bbbbbbbbiao/WeBook/webook/internal/service/sms/memory"
-	"github.com/bbbbbbbbiao/WeBook/webook/internal/web"
 	"github.com/bbbbbbbbiao/WeBook/webook/internal/web/middleware"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
-	"github.com/redis/go-redis/v9"
-	"gorm.io/driver/mysql"
-	"gorm.io/gorm"
 	"net/http"
 	"strings"
-	"time"
 )
 
 func main() {
 	// 初始化数据库
-	db := initDB()
-	re := initRedis()
+	//db := initDB()
+	//re := initRedis()
 
 	//server := initWbeServer()
 
-	server := initJWTWebServer()
-	u := initUser(db, re)
-	u.RegisterRoutes(server)
-
+	//server := initJWTWebServer()
+	server := InitWebServer()
+	////u := initUser(db, re)
+	////u.RegisterRoutes(server)
+	//
 	server.GET("/hello", func(ctx *gin.Context) {
 		ctx.String(http.StatusOK, "hello, I am k8s!!!")
 	})
@@ -123,38 +113,38 @@ func initWbeServer() *gin.Engine {
 	return server
 }
 
-func initUser(db *gorm.DB, redis *redis.Client) *web.UserHandler {
-	ud := dao.NewUserDao(db)
-	uc := cache.NewUserCache(redis, time.Minute*30)
-	codeCache := cache.NewCodeCache(redis)
-	// 初始化用户模块的Repository
-	ur := repository.NewUserRepository(ud, uc)
-	codeRepo := repository.NewCodeRepository(codeCache)
-	// 初始化用户模块的Service
-	svc := service.NewUserService(ur)
-	smsSvc := memory.NewService()
-	codeSvc := service.NewCodeService(codeRepo, smsSvc)
-	// 初始化用户模块的Handler
-	u := web.NewUserHandler(svc, codeSvc)
-	return u
-}
-
-func initRedis() *redis.Client {
-	return redis.NewClient(&redis.Options{
-		Addr: config.Config.Redis.Addr,
-	})
-}
-
-func initDB() *gorm.DB {
-	db, err := gorm.Open(mysql.Open(config.Config.DB.DSN))
-	if err != nil {
-		// 表示该goroutine直接退出
-		panic(err)
-	}
-	// 初始化数据库表
-	err = dao.InitTable(db)
-	if err != nil {
-		panic(err)
-	}
-	return db
-}
+//func initUser(db *gorm.DB, redis *redis.Client) *web.UserHandler {
+//	ud := dao.NewUserDao(db)
+//	uc := cache.NewUserCache(redis, time.Minute*30)
+//	codeCache := cache.NewCodeCache(redis)
+//	// 初始化用户模块的Repository
+//	ur := repository.NewUserRepository(ud, uc)
+//	codeRepo := repository.NewCodeRepository(codeCache)
+//	// 初始化用户模块的Service
+//	svc := service.NewUserService(ur)
+//	smsSvc := memory.NewService()
+//	codeSvc := service.NewCodeService(codeRepo, smsSvc)
+//	// 初始化用户模块的Handler
+//	u := web.NewUserHandler(svc, codeSvc)
+//	return u
+//}
+//
+//func initRedis() *redis.Client {
+//	return redis.NewClient(&redis.Options{
+//		Addr: config.Config.Redis.Addr,
+//	})
+//}
+//
+//func initDB() *gorm.DB {
+//	db, err := gorm.Open(mysql.Open(config.Config.DB.DSN))
+//	if err != nil {
+//		// 表示该goroutine直接退出
+//		panic(err)
+//	}
+//	// 初始化数据库表
+//	err = dao.InitTable(db)
+//	if err != nil {
+//		panic(err)
+//	}
+//	return db
+//}

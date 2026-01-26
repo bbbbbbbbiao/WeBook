@@ -28,21 +28,30 @@ var luaSetCode string
 //go:embed lua/verify_code.lua
 var verifyCode string
 
-type CodeCache struct {
+type CodeCache interface {
+	Key(biz, phone string) string
+	Set(ctx context.Context, phone string, biz string, code string) error
+	Verify(ctx context.Context, phone string, biz string, inputCode string) (bool, error)
+}
+
+type RedisCodeCache struct {
 	cmd redis.Cmdable
 }
 
-func NewCodeCache(cmd redis.Cmdable) *CodeCache {
-	return &CodeCache{
+// 最佳实践这里返回的都是对应结构体
+// 但是wire的缺点，就是无法通过接口找到对应的实现
+// 所以这里返回对应的接口
+func NewRedisCodeCache(cmd redis.Cmdable) CodeCache {
+	return &RedisCodeCache{
 		cmd: cmd,
 	}
 }
 
-func (c *CodeCache) Key(biz, phone string) string {
+func (c *RedisCodeCache) Key(biz, phone string) string {
 	return fmt.Sprintf("phone_code:%s:%s", biz, phone)
 }
 
-func (c *CodeCache) Set(ctx context.Context, phone string, biz string, code string) error {
+func (c *RedisCodeCache) Set(ctx context.Context, phone string, biz string, code string) error {
 	// .Int() 表示你Lua脚本写的返回是啥，就用啥接收
 	res, err := c.cmd.Eval(ctx, luaSetCode, []string{c.Key(biz, phone)}, code).Int()
 	if err != nil {
@@ -62,7 +71,7 @@ func (c *CodeCache) Set(ctx context.Context, phone string, biz string, code stri
 	}
 }
 
-func (c *CodeCache) Verify(ctx context.Context, phone string, biz string, inputCode string) (bool, error) {
+func (c *RedisCodeCache) Verify(ctx context.Context, phone string, biz string, inputCode string) (bool, error) {
 	res, err := c.cmd.Eval(ctx, verifyCode, []string{c.Key(biz, phone)}, inputCode).Int()
 	if err != nil {
 		return false, err
@@ -82,21 +91,21 @@ func (c *CodeCache) Verify(ctx context.Context, phone string, biz string, inputC
 ////go:embed lua/set_code.lua
 //var luaSetCode string
 //
-//type CodeCache struct {
+//type RedisCodeCache struct {
 //	cmd redis.Cmdable
 //}
 //
-//func NewCodeCache(cmd redis.Cmdable) *CodeCache {
-//	return &CodeCache{
+//func NewRedisCodeCache(cmd redis.Cmdable) *RedisCodeCache {
+//	return &RedisCodeCache{
 //		cmd: cmd,
 //	}
 //}
 //
-//func (cache *CodeCache) Key(biz, phone string) string {
+//func (cache *RedisCodeCache) Key(biz, phone string) string {
 //	return fmt.Sprintf("phone_code:%s:%s", biz, phone)
 //}
 //
-//func (cache *CodeCache) Set(ctx context.Context, biz, phone, code string) error {
+//func (cache *RedisCodeCache) Set(ctx context.Context, biz, phone, code string) error {
 //	res, err := cache.cmd.Eval(ctx, luaSetCode, []string{cache.Key(biz, phone)}, code).Int()
 //	if err != nil {
 //		return err

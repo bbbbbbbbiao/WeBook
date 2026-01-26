@@ -39,18 +39,26 @@ type User struct {
 	Utime int64
 }
 
+type UserDao interface {
+	Insert(ctx context.Context, u User) error
+	FindByEmail(ctx context.Context, email string) (User, error)
+	FindByPhone(ctx context.Context, phone string) (User, error)
+	FindUserById(ctx context.Context, id int64) (User, error)
+	UpdateById(ctx context.Context, u User) error
+}
+
 // UserDao 是用户的 DAO 层
-type UserDao struct {
+type GORMUserDao struct {
 	db *gorm.DB
 }
 
-func NewUserDao(db *gorm.DB) *UserDao {
-	return &UserDao{
+func NewUserDao(db *gorm.DB) UserDao {
+	return &GORMUserDao{
 		db: db,
 	}
 }
 
-func (ud *UserDao) Insert(ctx context.Context, u User) error {
+func (ud *GORMUserDao) Insert(ctx context.Context, u User) error {
 	now := time.Now().UnixMilli()
 	u.Ctime = now
 	u.Utime = now
@@ -65,24 +73,24 @@ func (ud *UserDao) Insert(ctx context.Context, u User) error {
 	return err
 }
 
-func (ud *UserDao) FindByEmail(ctx context.Context, email string) (User, error) {
+func (ud *GORMUserDao) FindByEmail(ctx context.Context, email string) (User, error) {
 	var u User
 	err := ud.db.WithContext(ctx).Where("email = ?", email).First(&u).Error
 	return u, err
 }
 
-func (ud *UserDao) FindByPhone(ctx context.Context, phone string) (User, error) {
+func (ud *GORMUserDao) FindByPhone(ctx context.Context, phone string) (User, error) {
 	var u User
 	err := ud.db.WithContext(ctx).Where("phone = ?", phone).First(&u).Error
 	return u, err
 }
 
-func (ud *UserDao) FindUserById(ctx context.Context, id int64) (User, error) {
+func (ud *GORMUserDao) FindUserById(ctx context.Context, id int64) (User, error) {
 	var u User
 	err := ud.db.WithContext(ctx).Where("id = ?", id).First(&u).Error
 	return u, err
 }
 
-func (ud *UserDao) UpdateById(ctx context.Context, u User) error {
+func (ud *GORMUserDao) UpdateById(ctx context.Context, u User) error {
 	return ud.db.WithContext(ctx).Where("id = ?", u.Id).Updates(&u).Error
 }

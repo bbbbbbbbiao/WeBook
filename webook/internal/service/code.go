@@ -21,20 +21,26 @@ var (
 	ErrCodeVerifyTooMay = repository.ErrCodeVerifyTooMany
 )
 
-type CodeService struct {
-	repo   *repository.CodeRepository
+type CodeService interface {
+	Send(ctx context.Context, biz string, phone string) error
+	Verify(ctx context.Context, biz string, phone string, inputCode string) (bool, error)
+	GenerateCode() string
+}
+
+type codeService struct {
+	repo   repository.CodeRepository
 	smsSvc sms.Service
 }
 
-func NewCodeService(repo *repository.CodeRepository, smsSvc sms.Service) *CodeService {
-	return &CodeService{
+func NewCodeService(repo repository.CodeRepository, smsSvc sms.Service) CodeService {
+	return &codeService{
 		repo:   repo,
 		smsSvc: smsSvc,
 	}
 }
 
 // 发送验证码，发送给谁，以及区别业务场景
-func (svc *CodeService) Send(ctx context.Context, biz string, phone string) error {
+func (svc *codeService) Send(ctx context.Context, biz string, phone string) error {
 	// 三个步骤，生成一个验证码，放到redis中，发送验证码
 	code := svc.GenerateCode()
 	err := svc.repo.Store(ctx, biz, phone, code)
@@ -50,11 +56,11 @@ func (svc *CodeService) Send(ctx context.Context, biz string, phone string) erro
 	return err
 }
 
-func (svc *CodeService) Verify(ctx context.Context, biz string, phone string, inputCode string) (bool, error) {
+func (svc *codeService) Verify(ctx context.Context, biz string, phone string, inputCode string) (bool, error) {
 	return svc.repo.Verify(ctx, biz, phone, inputCode)
 }
 
-func (svc *CodeService) GenerateCode() string {
+func (svc *codeService) GenerateCode() string {
 	// 取值为 0 - 999999
 	num := rand.Intn(10000000)
 	return fmt.Sprintf("%06d", num)
@@ -64,19 +70,19 @@ func (svc *CodeService) GenerateCode() string {
 //
 //var ErrCodeSendTooMany = repository.ErrCodeSendTooMany
 //
-//type CodeService struct {
-//	repo   *repository.CodeRepository
+//type codeService struct {
+//	repo   *repository.CacheCodeRepository
 //	smsSvc sms.Service
 //}
 //
-//func NewCodeService(repo *repository.CodeRepository, smsSvc sms.Service) *CodeService {
-//	return &CodeService{
+//func NewCodeService(repo *repository.CacheCodeRepository, smsSvc sms.Service) *codeService {
+//	return &codeService{
 //		repo:   repo,
 //		smsSvc: smsSvc,
 //	}
 //}
 //
-//func (svc *CodeService) Send(ctx context.Context, biz string, phone string) error {
+//func (svc *codeService) Send(ctx context.Context, biz string, phone string) error {
 //	// 三件事：生成验证码、 存入Redis、 发送验证码
 //	code := svc.GenerateCode()
 //
@@ -91,11 +97,11 @@ func (svc *CodeService) GenerateCode() string {
 //	return err
 //}
 //
-//func (svc *CodeService) Verify(ctx context.Context, biz string, phone string, inputCode string) (bool, error) {
+//func (svc *codeService) Verify(ctx context.Context, biz string, phone string, inputCode string) (bool, error) {
 //
 //}
 //
-//func (svc *CodeService) GenerateCode() string {
+//func (svc *codeService) GenerateCode() string {
 //	intn := rand.Intn(1000000)
 //	return fmt.Sprintf("%06d", intn)
 //}

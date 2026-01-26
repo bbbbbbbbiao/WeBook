@@ -20,8 +20,8 @@ import (
 const biz = "login"
 
 type UserHandler struct {
-	svc              *service.UserService
-	codeSvc          *service.CodeService
+	svc              service.UserService
+	codeSvc          service.CodeService
 	emailExpr        *regexp.Regexp
 	passwordExpr     *regexp.Regexp
 	nikeNameExpr     *regexp.Regexp
@@ -29,7 +29,7 @@ type UserHandler struct {
 	introductionExpr *regexp.Regexp
 }
 
-func NewUserHandler(svc *service.UserService, codeSvc *service.CodeService) *UserHandler {
+func NewUserHandler(svc service.UserService, codeSvc service.CodeService) *UserHandler {
 	const (
 		EmailRegexPattern    = `^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`
 		PasswordRegexPattern = `^(?=.*[A-Z])(?=.*[a-z])(?=.*[0-9])(?=.*[!@#$%^&*()_+\-=\[\]{}|;':",./<>?]).{8,}$`
@@ -406,6 +406,9 @@ func (u *UserHandler) Profile(ctx *gin.Context) {
 		ctx.String(http.StatusOK, "系统错误")
 		return
 	}
+
+	// TODO: 这里不能直接将domain暴露出去
+	// 首先不能让别人知道你的domain，同时你的密码也在里面
 	ctx.JSON(http.StatusOK, user)
 }
 

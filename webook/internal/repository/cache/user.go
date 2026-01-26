@@ -17,25 +17,31 @@ import (
 
 var ErrKeyNotExist = redis.Nil
 
+type UserCache interface {
+	Key(id int64) string
+	Set(ctx context.Context, user domain.User) error
+	Get(ctx context.Context, id int64) (domain.User, error)
+}
+
 // 面向接口编程
-type UserCache struct {
+type RedisUserCache struct {
 	cmd        redis.Cmdable
 	expiration time.Duration
 }
 
 // 依赖注入
-func NewUserCache(cmd redis.Cmdable, expiration time.Duration) *UserCache {
-	return &UserCache{
+func NewUserCache(cmd redis.Cmdable, expiration time.Duration) UserCache {
+	return &RedisUserCache{
 		cmd:        cmd,
 		expiration: expiration,
 	}
 }
 
-func (cache *UserCache) Key(id int64) string {
+func (cache *RedisUserCache) Key(id int64) string {
 	return fmt.Sprintf("user:info:%d", id)
 }
 
-func (cache *UserCache) Set(ctx context.Context, user domain.User) error {
+func (cache *RedisUserCache) Set(ctx context.Context, user domain.User) error {
 
 	key := cache.Key(user.Id)
 
@@ -52,7 +58,7 @@ func (cache *UserCache) Set(ctx context.Context, user domain.User) error {
 // error 不为空
 //   - ErrKeyNotExist Key不存在
 //   - nil 可能没有命中/redis崩掉了
-func (cache *UserCache) Get(ctx context.Context, id int64) (domain.User, error) {
+func (cache *RedisUserCache) Get(ctx context.Context, id int64) (domain.User, error) {
 
 	key := cache.Key(id)
 	data, err := cache.cmd.Get(ctx, key).Result()

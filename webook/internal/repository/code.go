@@ -16,36 +16,41 @@ var (
 	ErrCodeVerifyTooMany = cache.ErrCodeVerifyTooMany
 )
 
-type CodeRepository struct {
-	cache *cache.CodeCache
+type CodeRepository interface {
+	Store(ctx context.Context, biz, phone, code string) error
+	Verify(ctx context.Context, biz, phone, code string) (bool, error)
 }
 
-func NewCodeRepository(cache *cache.CodeCache) *CodeRepository {
-	return &CodeRepository{
+type CacheCodeRepository struct {
+	cache cache.CodeCache
+}
+
+func NewCacheCodeRepository(cache cache.CodeCache) CodeRepository {
+	return &CacheCodeRepository{
 		cache: cache,
 	}
 }
 
-func (repo *CodeRepository) Store(ctx context.Context, biz, phone, code string) error {
+func (repo *CacheCodeRepository) Store(ctx context.Context, biz, phone, code string) error {
 	return repo.cache.Set(ctx, phone, biz, code)
 }
 
-func (repo *CodeRepository) Verify(ctx context.Context, biz, phone, code string) (bool, error) {
+func (repo *CacheCodeRepository) Verify(ctx context.Context, biz, phone, code string) (bool, error) {
 	return repo.cache.Verify(ctx, phone, biz, code)
 }
 
 //var ErrCodeSendTooMany = cache.ErrCodeSendTooMany
 //
-//type CodeRepository struct {
-//	cache *cache.CodeCache
+//type CacheCodeRepository struct {
+//	cache *cache.RedisCodeCache
 //}
 //
-//func NewCodeRepository(cache *cache.CodeCache) *CodeRepository {
-//	return &CodeRepository{
+//func NewCacheCodeRepository(cache *cache.RedisCodeCache) *CacheCodeRepository {
+//	return &CacheCodeRepository{
 //		cache: cache,
 //	}
 //}
 //
-//func (repo *CodeRepository) Store(ctx context.Context, biz, phone, code string) error {
+//func (repo *CacheCodeRepository) Store(ctx context.Context, biz, phone, code string) error {
 //	return repo.cache.Set(ctx, biz, phone, code)
 //}
