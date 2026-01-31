@@ -1,19 +1,66 @@
+#version: '3.0'
+#
+#services:
+#  mysql8:
+#    image: mysql:8.0.29
+#    restart: always
+#    command: --default-authentication-plugin=mysql_native_password
+#    environment:
+#      MYSQL_ROOT_PASSWORD: root
+#    volumes:
+#      - ./script/mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
+#    ports:
+#      - "13316:3306"
+#  redis:
+#    image: "bitnami/redis:latest"
+#    environment:
+#      - ALLOW_EMPTY_PASSWORD=yes
+#    ports:
+#      - "6379:6379"
+
 version: '3.0'
 
 services:
+  # MySQL 8.0 服务
   mysql8:
-    image: mysql:8.0.29
+    image: mysql:8.0.29  # 锁定具体版本，保证环境一致性
     restart: always
     command: --default-authentication-plugin=mysql_native_password
     environment:
-      MYSQL_ROOT_PASSWORD: root
+      MYSQL_ROOT_PASSWORD: root  # root 密码
     volumes:
+      # 挂载初始化脚本，容器首次启动时自动执行
       - ./script/mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
+      # 挂载 MySQL 数据目录（本地 ./data/mysql 对应容器内 /var/lib/mysql）
+      - ./data/mysql:/var/lib/mysql
     ports:
       - "13316:3306"
+    # 可选：限制容器资源使用
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 1G
+
+  # Redis 服务（锁定 7.0 稳定版，支持 getdel 命令）
   redis:
-    image: "bitnami/redis:latest"
+    image: redis:7.0  # 替换为官方稳定版，优先兼容 getdel，新手更易适配
+    restart: always
     environment:
       - ALLOW_EMPTY_PASSWORD=yes
+    # 可选：添加 Redis 密码（如果项目需要，取消注释并修改密码）
+    # - REDIS_PASSWORD=your_redis_password
+    command: redis-server  # 启动 Redis 服务（默认配置，支持 RDB 持久化）
+    volumes:
+      # 挂载 Redis 数据目录（本地 ./data/redis 对应容器内 /data）
+      - ./data/redis:/data
     ports:
       - "6379:6379"
+    # 依赖 mysql8 服务，先启动 MySQL 再启动 Redis（提升启动稳定性）
+    depends_on:
+      - mysql8
+    deploy:
+      resources:
+        limits:
+          cpus: '0.2'
+          memory: 512M

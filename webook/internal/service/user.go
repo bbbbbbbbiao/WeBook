@@ -101,7 +101,7 @@ func (svc *userService) FindOrCreate(ctx *gin.Context, phone string) (domain.Use
 		return u, err
 	}
 
-	// 在系统资源不足，触发降级之后，不执行慢路径了
+	// 在系统资源不足，触发降级之后，不执行慢路径了（IO查找）
 	// 慢路径
 	// 明确是没有这个用户的
 	u = domain.User{

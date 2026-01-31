@@ -121,7 +121,8 @@ func (u *UserHandler) SingUp(ctx *gin.Context) {
 		ctx.String(http.StatusOK, "系统错误")
 		return
 	}
-	ctx.JSON(http.StatusOK, "注册成功")
+
+	ctx.String(http.StatusOK, "注册成功")
 }
 
 // 发送验证码
@@ -131,6 +132,10 @@ func (u *UserHandler) SendLoginSMSCode(ctx *gin.Context) {
 	}
 	var req Req
 	if err := ctx.Bind(&req); err != nil {
+		ctx.JSON(http.StatusOK, Result{
+			Code: 5,
+			Msg:  "1111",
+		})
 		return
 	}
 	err := u.codeSvc.Send(ctx, biz, req.Phone)
@@ -170,7 +175,8 @@ func (u *UserHandler) SendLoginSMSCode(ctx *gin.Context) {
 
 }
 
-// 验证验证码
+// TODO: 测试
+// 验证验证码 （注册或登录）
 func (u *UserHandler) LoginSms(ctx *gin.Context) {
 	type VerifyReq struct {
 		Phone string `json:"phone"`
@@ -284,7 +290,6 @@ func (u *UserHandler) SetJWTToken(ctx *gin.Context, uid int64) error {
 	if err != nil {
 		return err
 	}
-
 	ctx.Header("x-jwt-token", tokenStr)
 	return nil
 }

@@ -62,7 +62,7 @@ func (svc *codeService) Verify(ctx context.Context, biz string, phone string, in
 
 func (svc *codeService) GenerateCode() string {
 	// 取值为 0 - 999999
-	num := rand.Intn(10000000)
+	num := rand.Intn(1000000)
 	return fmt.Sprintf("%06d", num)
 }
 

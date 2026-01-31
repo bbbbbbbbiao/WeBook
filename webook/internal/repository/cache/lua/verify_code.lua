@@ -10,7 +10,7 @@ local cntKey = key..":cnt"
 local code = redis.call("get", key)
 local cnt = tonumber(redis.call("get", cntKey))
 
-if cnt <= 0 then
+if cnt == nil or cnt <= 0 then
     --    用户次数用完
     return -1
 elseif expectedCode == code then

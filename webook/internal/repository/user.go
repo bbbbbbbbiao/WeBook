@@ -79,11 +79,11 @@ func (ur *CachedUserRepository) FindUserById(ctx context.Context, id int64) (dom
 
 	u = ur.EntityToDomain(ue)
 
-	err = ur.uc.Set(ctx, u)
+	_ = ur.uc.Set(ctx, u)
 
-	if err != nil {
-		// 这里记录一下就行 （可以容忍这里的错误，但是需要记录是否是redis崩了）
-	}
+	//if err != nil {
+	//	// 这里记录一下就行 （可以容忍这里的错误，但是需要记录是否是redis崩了）
+	//}
 
 	return u, nil
 }
