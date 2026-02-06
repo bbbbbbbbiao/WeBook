@@ -29,6 +29,28 @@ func NewService(client *sms.Client, signName string, appId string) *Service {
 	}
 }
 
+func (s *Service) Send(ctx context.Context, tpl string, args []string, numbers ...string) error {
+	req := sms.NewSendSmsRequest()
+	req.SignName = s.signName
+	req.SmsSdkAppId = s.appId
+	req.TemplateId = ekit.ToPtr[string](tpl)
+	req.TemplateParamSet = s.ToStringPtrSlice(args)
+	req.PhoneNumberSet = s.ToStringPtrSlice(numbers)
+	resp, err := s.client.SendSms(req)
+
+	if err != nil {
+		return err
+	}
+
+	for _, status := range resp.Response.SendStatusSet {
+		if status.Code == nil || *(status.Code) != "Ok" {
+			// 有一条错误，则返回error
+			return fmt.Errorf("发送失败, code: %s, 原因是: %s", *status.Code, *status.Message)
+		}
+	}
+	return nil
+}
+
 func (s *Service) SendV1(ctx context.Context, tpl string, args []mySms.NamedArg, numbers ...string) error {
 	req := sms.NewSendSmsRequest()
 	req.SmsSdkAppId = s.appId

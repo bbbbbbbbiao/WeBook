@@ -61,6 +61,7 @@ func (jl *JWTLoginMiddlewareBuilder) Build() gin.HandlerFunc {
 			return
 		}
 
+		// 增强系统登录安全（User-Agent）
 		if ctx.Request.UserAgent() != userClaims.UserAgent {
 			ctx.AbortWithStatus(http.StatusUnauthorized)
 			return

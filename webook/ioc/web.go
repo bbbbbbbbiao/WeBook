@@ -3,9 +3,12 @@ package ioc
 import (
 	"github.com/bbbbbbbbiao/WeBook/webook/internal/web"
 	"github.com/bbbbbbbbiao/WeBook/webook/internal/web/middleware"
+	"github.com/bbbbbbbbiao/WeBook/webook/pkg/ginx/middlewares/ratelimit"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"github.com/redis/go-redis/v9"
 	"strings"
+	"time"
 )
 
 /**
@@ -24,7 +27,7 @@ func InitWebServe(middlewares []gin.HandlerFunc, userHdl *web.UserHandler) *gin.
 	return server
 }
 
-func InitMiddlewares() []gin.HandlerFunc {
+func InitMiddlewares(cmd redis.Cmdable) []gin.HandlerFunc {
 	return []gin.HandlerFunc{
 		CorsHdl(),
 		middleware.NewLoginMiddlewareBuilder().
@@ -33,6 +36,7 @@ func InitMiddlewares() []gin.HandlerFunc {
 			IgnorePath("/users/login_sms/code/send").
 			IgnorePath("/users/login_sms").
 			Build(),
+		RateLimitHdl(cmd),
 	}
 }
 
@@ -48,4 +52,10 @@ func CorsHdl() gin.HandlerFunc {
 			return strings.HasPrefix(origin, "youCompany.com")
 		},
 	})
+}
+
+func RateLimitHdl(cmd redis.Cmdable) gin.HandlerFunc {
+	// 为啥不单独Init一个限流器，因为其他地方也用到了-不同的-限流器，冲突了
+	limiter := ratelimit.NewRedisSlidingWindowLimiter(cmd, time.Second, 100)
+	return middleware.NewBuilder(limiter).Build()
 }
