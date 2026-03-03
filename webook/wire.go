@@ -42,7 +42,7 @@ func InitWebServer() *gin.Engine {
 		// 中间件？ 注册路由呢？
 		ioc.InitWebServe,
 		ioc.InitMiddlewares,
-		ioc.InitRedisSlidingWindowLimiter,
+		//ioc.InitRedisSlidingWindowLimiter,
 	)
 	return new(gin.Engine)
 }

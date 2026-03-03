@@ -6,9 +6,7 @@ import (
 	regexp "github.com/dlclark/regexp2"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
-	"github.com/golang-jwt/jwt/v5"
 	"net/http"
-	"time"
 )
 
 /**
@@ -27,6 +25,7 @@ type UserHandler struct {
 	nikeNameExpr     *regexp.Regexp
 	birthdayExpr     *regexp.Regexp
 	introductionExpr *regexp.Regexp
+	JwtHandler
 }
 
 func NewUserHandler(svc service.UserService, codeSvc service.CodeService) *UserHandler {
@@ -275,25 +274,6 @@ func (u *UserHandler) JWTLogin(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, "登录成功")
 }
 
-func (u *UserHandler) SetJWTToken(ctx *gin.Context, uid int64) error {
-	// 生成jwt结构体
-	token := jwt.NewWithClaims(jwt.SigningMethodHS512, UserClaims{
-		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Minute * 30)),
-		},
-		UserId:    uid,
-		UserAgent: ctx.Request.UserAgent(),
-	})
-
-	tokenStr, err := token.SignedString([]byte("3E7QYaUxM5tMhDWwd5HphdYWND7WR2Vx"))
-
-	if err != nil {
-		return err
-	}
-	ctx.Header("x-jwt-token", tokenStr)
-	return nil
-}
-
 func (u *UserHandler) Login(ctx *gin.Context) {
 	type LoginReq struct {
 		Email    string `json:"email"`
@@ -415,11 +395,4 @@ func (u *UserHandler) Profile(ctx *gin.Context) {
 	// TODO: 这里不能直接将domain暴露出去
 	// 首先不能让别人知道你的domain，同时你的密码也在里面
 	ctx.JSON(http.StatusOK, user)
-}
-
-// 声明一个我自己的放到token中数据
-type UserClaims struct {
-	jwt.RegisteredClaims
-	UserId    int64
-	UserAgent string
 }

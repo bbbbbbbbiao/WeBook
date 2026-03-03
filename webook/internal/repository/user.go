@@ -25,6 +25,7 @@ type UserRepository interface {
 	FindByPhone(ctx context.Context, phone string) (domain.User, error)
 	FindUserById(ctx context.Context, id int64) (domain.User, error)
 	UpdateById(ctx context.Context, u domain.User) error
+	FindByOpenId(ctx context.Context, id string) (domain.User, error)
 }
 
 type CachedUserRepository struct {
@@ -64,6 +65,7 @@ func (ur *CachedUserRepository) FindByPhone(ctx context.Context, phone string) (
 	return ur.EntityToDomain(u), nil
 }
 
+// 使用redis加快数据响应（用于前端展示用户信息）
 func (ur *CachedUserRepository) FindUserById(ctx context.Context, id int64) (domain.User, error) {
 
 	u, err := ur.uc.Get(ctx, id)
@@ -88,6 +90,14 @@ func (ur *CachedUserRepository) FindUserById(ctx context.Context, id int64) (dom
 	return u, nil
 }
 
+func (ur *CachedUserRepository) FindByOpenId(ctx context.Context, openId string) (domain.User, error) {
+	u, err := ur.ud.FindByOpenId(ctx, openId)
+	if err != nil {
+		return domain.User{}, err
+	}
+	return ur.EntityToDomain(u), nil
+}
+
 func (ur *CachedUserRepository) UpdateById(ctx context.Context, u domain.User) error {
 	return ur.ud.UpdateById(ctx, dao.User{
 		Id:           u.Id,
@@ -109,6 +119,14 @@ func (ur *CachedUserRepository) DomainToEntity(user domain.User) dao.User {
 			String: user.Phone,
 			Valid:  user.Phone != "",
 		},
+		WechatOpenId: sql.NullString{
+			String: user.OpenId,
+			Valid:  user.OpenId != "",
+		},
+		WechatUnionId: sql.NullString{
+			String: user.UnionId,
+			Valid:  user.UnionId != "",
+		},
 		NickName:     user.NickName,
 		Birthday:     user.Birthday,
 		Introduction: user.Introduction,
@@ -121,6 +139,8 @@ func (ur *CachedUserRepository) EntityToDomain(user dao.User) domain.User {
 		Email:        user.Email.String,
 		Password:     user.Password,
 		Phone:        user.Phone.String,
+		OpenId:       user.WechatOpenId.String,
+		UnionId:      user.WechatUnionId.String,
 		NickName:     user.NickName,
 		Birthday:     user.Birthday,
 		Introduction: user.Introduction,

@@ -9,5 +9,5 @@ import "gorm.io/gorm"
  */
 
 func InitTable(db *gorm.DB) error {
-	return db.AutoMigrate(&User{}, &SmsRequest{})
+	return db.AutoMigrate(&User{}, &Request{})
 }

@@ -30,6 +30,9 @@ type User struct {
 	// 不允许有多个空字符串
 	Phone sql.NullString `gorm:"unique"`
 
+	WechatOpenId  sql.NullString `gorm:"unique"`
+	WechatUnionId sql.NullString `gorm:"unique"`
+
 	NickName     string
 	Birthday     string
 	Introduction string
@@ -45,6 +48,7 @@ type UserDao interface {
 	FindByPhone(ctx context.Context, phone string) (User, error)
 	FindUserById(ctx context.Context, id int64) (User, error)
 	UpdateById(ctx context.Context, u User) error
+	FindByOpenId(ctx context.Context, id string) (User, error)
 }
 
 // UserDao 是用户的 DAO 层
@@ -88,6 +92,12 @@ func (ud *GORMUserDao) FindByPhone(ctx context.Context, phone string) (User, err
 func (ud *GORMUserDao) FindUserById(ctx context.Context, id int64) (User, error) {
 	var u User
 	err := ud.db.WithContext(ctx).Where("id = ?", id).First(&u).Error
+	return u, err
+}
+
+func (ud *GORMUserDao) FindByOpenId(ctx context.Context, openId string) (User, error) {
+	var u User
+	err := ud.db.WithContext(ctx).Where("open_id = ?", openId).First(&u).Error
 	return u, err
 }
 

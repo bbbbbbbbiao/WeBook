@@ -7,10 +7,15 @@ package domain
  */
 
 type User struct {
-	Id           int64
-	Email        string
-	Password     string
-	Phone        string
+	Id       int64
+	Email    string
+	Password string
+	Phone    string
+	OpenId   string
+	UnionId  string
+
+	//　这里可以进行组合，但是我们没有组合，因为后面如果有QQ、钉钉扫码的话，可以复用（OpenId 和 UnionId）
+	//　WeChatInfo WeChatInfo
 	NickName     string
 	Birthday     string
 	Introduction string
