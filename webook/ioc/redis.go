@@ -1,8 +1,9 @@
 package ioc
 
 import (
-	"github.com/bbbbbbbbiao/WeBook/webook/config"
+	"fmt"
 	"github.com/redis/go-redis/v9"
+	"github.com/spf13/viper"
 	"time"
 )
 
@@ -13,8 +14,16 @@ import (
  */
 
 func InitRedis() redis.Cmdable {
+
+	type Config struct {
+		Addr string `yaml:"addr"`
+	}
+	var c Config
+	if err := viper.UnmarshalKey("redis", &c); err != nil {
+		panic(fmt.Errorf("初始化配置失败，%v", err))
+	}
 	return redis.NewClient(&redis.Options{
-		Addr: config.Config.Redis.Addr,
+		Addr: c.Addr,
 	})
 }
 

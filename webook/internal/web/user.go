@@ -3,9 +3,14 @@ package web
 import (
 	"github.com/bbbbbbbbiao/WeBook/webook/internal/domain"
 	"github.com/bbbbbbbbiao/WeBook/webook/internal/service"
+	iJwt "github.com/bbbbbbbbiao/WeBook/webook/internal/web/jwt"
+	"github.com/bbbbbbbbiao/WeBook/webook/pkg/logger"
 	regexp "github.com/dlclark/regexp2"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt/v5"
+	"github.com/redis/go-redis/v9"
+	"go.uber.org/zap"
 	"net/http"
 )
 
@@ -18,6 +23,7 @@ import (
 const biz = "login"
 
 type UserHandler struct {
+	cmd              redis.Cmdable
 	svc              service.UserService
 	codeSvc          service.CodeService
 	emailExpr        *regexp.Regexp
@@ -25,10 +31,15 @@ type UserHandler struct {
 	nikeNameExpr     *regexp.Regexp
 	birthdayExpr     *regexp.Regexp
 	introductionExpr *regexp.Regexp
-	JwtHandler
+	iJwt.Handler
+	l logger.LoggerV2
 }
 
-func NewUserHandler(svc service.UserService, codeSvc service.CodeService) *UserHandler {
+func NewUserHandler(svc service.UserService,
+	codeSvc service.CodeService,
+	cmd redis.Cmdable,
+	handler iJwt.Handler,
+	l logger.LoggerV2) *UserHandler {
 	const (
 		EmailRegexPattern    = `^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`
 		PasswordRegexPattern = `^(?=.*[A-Z])(?=.*[a-z])(?=.*[0-9])(?=.*[!@#$%^&*()_+\-=\[\]{}|;':",./<>?]).{8,}$`
@@ -43,6 +54,7 @@ func NewUserHandler(svc service.UserService, codeSvc service.CodeService) *UserH
 	introductionExpr := regexp.MustCompile(IntroductionPattern, regexp.None)
 
 	return &UserHandler{
+		cmd:              cmd,
 		svc:              svc,
 		codeSvc:          codeSvc,
 		emailExpr:        emailExpr,
@@ -50,6 +62,8 @@ func NewUserHandler(svc service.UserService, codeSvc service.CodeService) *UserH
 		nikeNameExpr:     nikeNameExpr,
 		birthdayExpr:     birthdayExpr,
 		introductionExpr: introductionExpr,
+		Handler:          handler,
+		l:                l,
 	}
 }
 
@@ -62,8 +76,11 @@ func (u *UserHandler) RegisterRoutes(server *gin.Engine) {
 	ug.GET("/profile", u.Profile)
 	ug.POST("/login_sms/code/send", u.SendLoginSMSCode)
 	ug.POST("/login_sms", u.LoginSms)
+	ug.POST("/refresh_token", u.RefreshToken)
+	ug.POST("/logout", u.Logout)
 }
 
+// 注册
 func (u *UserHandler) SingUp(ctx *gin.Context) {
 	type SignUpReq struct {
 		Email           string `json:"email"`
@@ -197,6 +214,15 @@ func (u *UserHandler) LoginSms(ctx *gin.Context) {
 			Code: 5,
 			Msg:  "验证次数已用完，请重新获取验证码",
 		})
+
+		// 当等级不是那么高时，我们可以用warn日志
+		// 但是这里可以在告警系统中进行配置
+		// 比如说规则，一分钟内出现超过100次WARN，你就告警
+		zap.L().Warn("验证次数已用完", zap.Error(err),
+			// 这里不能直接打印手机号码，因为手机号码是敏感数据
+			// 1. 进行手机号加密处理（能反向解密的，但是打印本就是高频操作，再进行加密的话性能就会很差，加密本就吃CPU和内存的）
+			// 2. 脱敏处理：130****5678，没啥用，找不到原始的手机号
+			zap.String("phone", req.Phone))
 		return
 	}
 
@@ -205,6 +231,8 @@ func (u *UserHandler) LoginSms(ctx *gin.Context) {
 			Code: 5,
 			Msg:  "系统错误",
 		})
+		//zap.L().Error("校验验证码出错", zap.Error(err))
+		u.l.Info("校验验证码出错", logger.String("err", err))
 		return
 	}
 
@@ -228,7 +256,8 @@ func (u *UserHandler) LoginSms(ctx *gin.Context) {
 	}
 
 	// 生成Token
-	if err = u.SetJWTToken(ctx, user.Id); err != nil {
+	err = u.SetLoginToken(ctx, user.Id)
+	if err != nil {
 		ctx.JSON(http.StatusOK, Result{
 			Code: 5,
 			Msg:  "系统错误",
@@ -241,6 +270,7 @@ func (u *UserHandler) LoginSms(ctx *gin.Context) {
 	})
 }
 
+// 账号JWT登录
 func (u *UserHandler) JWTLogin(ctx *gin.Context) {
 	type LoginReq struct {
 		Email    string `json:"email"`
@@ -267,13 +297,19 @@ func (u *UserHandler) JWTLogin(ctx *gin.Context) {
 		return
 	}
 
-	if err = u.SetJWTToken(ctx, user.Id); err != nil {
-		ctx.String(http.StatusOK, "系统错误")
+	// 生成Token
+	err = u.SetLoginToken(ctx, user.Id)
+	if err != nil {
+		ctx.JSON(http.StatusOK, Result{
+			Code: 5,
+			Msg:  "系统错误",
+		})
 		return
 	}
 	ctx.JSON(http.StatusOK, "登录成功")
 }
 
+// 账号Session 登录
 func (u *UserHandler) Login(ctx *gin.Context) {
 	type LoginReq struct {
 		Email    string `json:"email"`
@@ -315,6 +351,7 @@ func (u *UserHandler) Login(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, "登录成功")
 }
 
+// 编辑
 func (u *UserHandler) Edit(ctx *gin.Context) {
 	type EditReq struct {
 		NickName     string `json:"nikeName"`
@@ -373,9 +410,10 @@ func (u *UserHandler) Edit(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, "编辑成功")
 }
 
+// 获取用户信息
 func (u *UserHandler) Profile(ctx *gin.Context) {
 	userClaims, _ := ctx.Get("userClaims")
-	claims, ok := userClaims.(*UserClaims)
+	claims, ok := userClaims.(*iJwt.AccessClaims)
 	if !ok || claims.UserId == 0 {
 		ctx.String(http.StatusOK, "系统错误")
 		return
@@ -395,4 +433,93 @@ func (u *UserHandler) Profile(ctx *gin.Context) {
 	// TODO: 这里不能直接将domain暴露出去
 	// 首先不能让别人知道你的domain，同时你的密码也在里面
 	ctx.JSON(http.StatusOK, user)
+}
+
+// 刷新Token
+func (u *UserHandler) RefreshToken(ctx *gin.Context) {
+
+	// 当调用该接口时，Header中携带的便是RefreshToken
+	tokenStr := u.ExtractToken(ctx)
+	if tokenStr == "" {
+		ctx.JSON(http.StatusOK, Result{
+			Code: 5,
+			Msg:  "系统错误",
+		})
+	}
+
+	var refreshClaims iJwt.RefreshClaims
+	token, err := jwt.ParseWithClaims(tokenStr, &refreshClaims, func(token *jwt.Token) (interface{}, error) {
+		return iJwt.RefreshTokenKey, nil
+	})
+
+	if err != nil || token == nil || !token.Valid {
+		ctx.AbortWithStatus(http.StatusUnauthorized)
+		return
+	}
+
+	// 查询一下是否已经退出登录
+	err = u.CheckSession(ctx, refreshClaims.SsId)
+	if err != nil {
+		ctx.AbortWithStatus(http.StatusUnauthorized)
+		return
+	}
+
+	err = u.SetJWTToken(ctx, refreshClaims.UserId, refreshClaims.SsId)
+	if err != nil {
+		ctx.JSON(http.StatusOK, Result{
+			Code: 5,
+			Msg:  "系统错误",
+		})
+		// 用来标记哪个位置打印的日志
+		//zap.L().Error("设置JWTToken失败",
+		//	zap.Error(err), zap.String("method", "UserHandler.RefreshToken"))
+		// 正常来说Msg就应该能包含足够的定位信息
+		zap.L().Error("UserHandler:RefreshToken 设置JWTToken失败", zap.Error(err))
+		return
+	}
+
+	ctx.JSON(http.StatusOK, Result{
+		Code: 0,
+		Msg:  "刷新成功",
+	})
+}
+
+// 登出
+func (u *UserHandler) Logout(ctx *gin.Context) {
+	tokenStr := u.ExtractToken(ctx)
+	var accessClaims iJwt.AccessClaims
+
+	token, err := jwt.ParseWithClaims(tokenStr, &accessClaims, func(token *jwt.Token) (interface{}, error) {
+		return iJwt.AccessTokenKey, nil
+	})
+
+	if err != nil {
+		ctx.JSON(http.StatusOK, Result{
+			Code: 5,
+			Msg:  "系统错误",
+		})
+	}
+
+	if token == nil || !token.Valid {
+		ctx.JSON(http.StatusOK, Result{
+			Code: 5,
+			Msg:  "系统错误",
+		})
+	}
+
+	ssid := accessClaims.SsId
+	// 将 ssid 加入到Redis中，表示该Token已失效
+	err = u.ClearToken(ctx, ssid)
+	if err != nil {
+		ctx.JSON(http.StatusOK, Result{
+			Code: 5,
+			Msg:  "系统错误",
+		})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, Result{
+		Code: 0,
+		Msg:  "登出成功",
+	})
 }

@@ -129,7 +129,7 @@ func TestUserHandler_e2e_SendLoginSMSCode(t *testing.T) {
 
 			assert.Equal(t, tc.wantCode, resp.Code)
 			var respRes web.Result
-			_ = json.NewDecoder(resp.Body).Decode(&respRes)
+			_ = json.NewDecoder(resp.Body).Decode(&respRes) // 需要反序列化，将body中的数据反序列化到respRes中
 			assert.Equal(t, tc.wantBody, respRes)
 
 			tc.after(t)

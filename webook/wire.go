@@ -36,6 +36,7 @@ func InitWebServer() *gin.Engine {
 		service.NewUserService,
 		service.NewCodeService,
 		ioc.InitSMSService,
+		ioc.InitJwtHandler,
 
 		web.NewUserHandler,
 
@@ -43,6 +44,8 @@ func InitWebServer() *gin.Engine {
 		ioc.InitWebServe,
 		ioc.InitMiddlewares,
 		//ioc.InitRedisSlidingWindowLimiter,
+
+		ioc.InitLogger,
 	)
 	return new(gin.Engine)
 }
