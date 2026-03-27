@@ -6,8 +6,11 @@ package web
  * @description:
  */
 
+// 测试时，当以any接收值时
+// 如果是数字，则以float64接收
+// 如果是json，则以map接收
 type Result struct {
 	Code int    `json:"code"`
 	Msg  string `json:"msg"`
-	Date any    `json:"date"`
+	Data any    `json:"data"`
 }

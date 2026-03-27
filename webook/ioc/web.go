@@ -25,10 +25,11 @@ import (
 // 你的gin框架呢？你的路由注册呢？你的中间件呢？
 // 进行路由注册
 // 进行中间件的插入
-func InitWebServe(middlewares []gin.HandlerFunc, userHdl *web.UserHandler) *gin.Engine {
+func InitWebServe(middlewares []gin.HandlerFunc, userHdl *web.UserHandler, articleHdl *web.ArticleHandler) *gin.Engine {
 	server := gin.Default()
 	server.Use(middlewares...)
 	userHdl.RegisterRoutes(server)
+	articleHdl.RegisterRoutes(server)
 	return server
 }
 

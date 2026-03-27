@@ -12,3 +12,9 @@ func String(key string, value any) Field {
 		Value: value,
 	}
 }
+func Error(err error) Field {
+	return Field{
+		Key:   "error",
+		Value: err,
+	}
+}

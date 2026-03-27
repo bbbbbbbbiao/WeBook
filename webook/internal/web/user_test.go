@@ -132,7 +132,7 @@ func TestUserHandler_signUp(t *testing.T) {
 			// 注册gin
 			server := gin.Default()
 			// 注册UserHandler
-			h := NewUserHandler(tc.mock(ctrl), nil)
+			h := NewUserHandler(tc.mock(ctrl), nil, nil, nil, nil)
 			// 注册路由
 			h.RegisterRoutes(server)
 
@@ -303,7 +303,7 @@ func TestUserHandler_LoginSms(t *testing.T) {
 			server := gin.Default()
 
 			userSvc, codeSvc := tc.mock(ctrl)
-			h := NewUserHandler(userSvc, codeSvc)
+			h := NewUserHandler(userSvc, codeSvc, nil, nil, nil)
 
 			h.RegisterRoutes(server)
 

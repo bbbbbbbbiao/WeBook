@@ -44,3 +44,9 @@ func (z *ZapLogger) ToZapFields(args []Field) []zap.Field {
 
 	return fields
 }
+
+func NewNopLogger() LoggerV2 {
+	return &ZapLogger{
+		zl: zap.NewNop(),
+	}
+}

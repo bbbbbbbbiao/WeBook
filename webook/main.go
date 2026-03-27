@@ -35,7 +35,7 @@ func main() {
 	server.GET("/hello", func(ctx *gin.Context) {
 		ctx.String(http.StatusOK, "hello, I am k8s!!!")
 	})
-	//
+	////
 	server.Run(":8080")
 }
 
